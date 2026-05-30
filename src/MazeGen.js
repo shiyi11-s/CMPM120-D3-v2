@@ -59,11 +59,60 @@ const MazeGen = (function () {
     return { cols, rows, cells };
   }
 
-  // placeholder — Step 3.2
-  function carveLoops(maze, fraction, seed) {}
+  /**
+   * Knock out an additional fraction of interior walls to create loops.
+   * Helps make the maze less mean and gives the player choices.
+   */
+  function carveLoops(maze, fraction = 0.10, seed = 1) {
+    const rand = mulberry32(seed);
+    const candidates = [];
+    for (let y = 0; y < maze.rows; y++) {
+      for (let x = 0; x < maze.cols; x++) {
+        if (x + 1 < maze.cols && maze.cells[y][x].e) candidates.push({ x, y, k: "e" });
+        if (y + 1 < maze.rows && maze.cells[y][x].s) candidates.push({ x, y, k: "s" });
+      }
+    }
+    // Fisher-Yates shuffle
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    const n = Math.floor(candidates.length * fraction);
+    for (let i = 0; i < n; i++) {
+      const c = candidates[i];
+      maze.cells[c.y][c.x][c.k] = false;
+      const opp = { n: "s", e: "w", s: "n", w: "e" }[c.k];
+      const dx = c.k === "e" ? 1 : 0;
+      const dy = c.k === "s" ? 1 : 0;
+      maze.cells[c.y + dy][c.x + dx][opp] = false;
+    }
+  }
 
-  // placeholder — Step 3.3
-  function pickToggleWall(maze, seed) { return null; }
+  /** Pick a random *interior* wall as the Y-key togglable wall. */
+  function pickToggleWall(maze, seed = 7) {
+    const rand = mulberry32(seed);
+    const interior = [];
+    for (let y = 1; y < maze.rows; y++) {
+      for (let x = 0; x < maze.cols; x++) {
+        if (maze.cells[y][x].n) interior.push({ x, y, k: "n" });
+      }
+    }
+    for (let y = 0; y < maze.rows; y++) {
+      for (let x = 1; x < maze.cols; x++) {
+        if (maze.cells[y][x].w) interior.push({ x, y, k: "w" });
+      }
+    }
+    if (interior.length === 0) return null;
+    // Prefer walls roughly in the middle of the maze (more impactful change)
+    interior.sort((a, b) => {
+      const da = Math.hypot(a.x - maze.cols / 2, a.y - maze.rows / 2);
+      const db = Math.hypot(b.x - maze.cols / 2, b.y - maze.rows / 2);
+      return da - db;
+    });
+    // pick from the inner third
+    const top = interior.slice(0, Math.max(1, Math.floor(interior.length / 3)));
+    return top[Math.floor(rand() * top.length)];
+  }
 
   // PRNG: mulberry32 — small, deterministic, plenty good for level layouts.
   function mulberry32(seed) {
