@@ -138,10 +138,22 @@ class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.marble, this.deathGroup, () => this.onDeath(), null, this);
 
     this.tiltAngle = 0;
+    this.draggingState = null;
     this.completed = false;
     this.deathCount = 0;
     this.elapsedMs = 0;
     this.timerActive = false;
+
+    this.input.on("pointerdown", this.onPointerDown, this);
+    this.input.on("pointermove", this.onPointerMove, this);
+    this.input.on("pointerup",   this.onPointerUp,   this);
+
+    this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.keyY = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Y);
+    this.keyR.on("down", () => this.resetMarble(false));
+    this.keyY.on("down", () => this.toggleWall());
+
+    this.time.delayedCall(700, () => this.timerActive = true);
   }
 
   cellCenter(cx, cy) {
@@ -201,8 +213,109 @@ class GameScene extends Phaser.Scene {
     return wall;
   }
 
-  onReachGoal() {}
-  onDeath() {}
+  pointerVecFromCenter(pointer) {
+    return {
+      x: pointer.x - this.scale.width / 2,
+      y: pointer.y - this.scale.height / 2,
+    };
+  }
 
-  update(time, dt) {}
+  onPointerDown(pointer) {
+    if (this.completed) return;
+    const v = this.pointerVecFromCenter(pointer);
+    if (Math.hypot(v.x, v.y) < 30) { this.draggingState = null; return; }
+    this.draggingState = { lastAngle: Math.atan2(v.y, v.x) };
+  }
+
+  onPointerMove(pointer) {
+    if (this.completed) return;
+    if (!this.draggingState || !pointer.isDown) return;
+    const v = this.pointerVecFromCenter(pointer);
+    if (Math.hypot(v.x, v.y) < 30) return;
+    const a = Math.atan2(v.y, v.x);
+    let delta = a - this.draggingState.lastAngle;
+    while (delta >  Math.PI) delta -= 2 * Math.PI;
+    while (delta < -Math.PI) delta += 2 * Math.PI;
+    this.tiltAngle += delta;
+    this.draggingState.lastAngle = a;
+    this.applyTilt();
+  }
+
+  onPointerUp() {
+    this.draggingState = null;
+  }
+
+  applyTilt() {
+    const G = 620;
+    this.cameras.main.setRotation(this.tiltAngle);
+    this.physics.world.gravity.set(
+      G * Math.sin(this.tiltAngle),
+      G * Math.cos(this.tiltAngle)
+    );
+  }
+
+  resetMarble(countAsDeath) {
+    this.marble.setVelocity(0, 0);
+    this.marble.setPosition(this.startX, this.startY);
+    if (countAsDeath) this.deathCount += 1;
+    this.cameras.main.shake(120, 0.004);
+  }
+
+  toggleWall() {
+    if (!this.toggleWallSprite) return;
+    this.toggleOpen = !this.toggleOpen;
+    if (this.toggleOpen) {
+      this.toggleWallSprite.setVisible(false);
+      this.toggleWallSprite.body.enable = false;
+    } else {
+      this.toggleWallSprite.setVisible(true);
+      this.toggleWallSprite.body.enable = true;
+    }
+    this.cameras.main.flash(80, 255, 200, 100, false);
+  }
+
+  onReachGoal() {
+    if (this.completed) return;
+    this.completed = true;
+
+    RUN.perLevel[this.level - 1] = {
+      timeMs: this.elapsedMs,
+      deaths: this.deathCount,
+    };
+    RUN.totalTimeMs += this.elapsedMs;
+    RUN.totalDeaths += this.deathCount;
+
+    this.marble.body.enable = false;
+    this.tweens.add({
+      targets: this.marble,
+      x: this.goalX, y: this.goalY,
+      scale: 0.15, angle: 540,
+      duration: 600, ease: "cubic.in",
+    });
+
+    this.time.delayedCall(750, () => this.cameras.main.fadeOut(320, 0, 0, 0));
+    this.time.delayedCall(1100, () => this.scene.start("SummaryScene", { level: this.level }));
+  }
+
+  onDeath() {
+    if (this.completed) return;
+    this.cameras.main.flash(120, 255, 60, 60, true);
+    this.cameras.main.shake(160, 0.008);
+    this.resetMarble(true);
+  }
+
+  update(time, dt) {
+    if (this.completed) return;
+
+    if (this.timerActive) this.elapsedMs += dt;
+
+    const m = this.marble;
+    const safeR = Math.max(this.mazeWidth, this.mazeHeight) * 0.85;
+    if (Math.hypot(m.x - this.mazeCenterX, m.y - this.mazeCenterY) > safeR) {
+      this.resetMarble(true);
+    }
+
+    this.bg.tilePositionX += 0.12;
+    this.bg.tilePositionY += 0.06;
+  }
 }
