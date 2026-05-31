@@ -1,5 +1,4 @@
 const MazeGen = (function () {
-  // Direction deltas
   const DIR = {
     n: { dx: 0, dy: -1, opp: "s" },
     e: { dx: 1, dy: 0, opp: "w" },
@@ -11,17 +10,9 @@ const MazeGen = (function () {
     return { n: true, e: true, s: true, w: true, visited: false };
   }
 
-  /**
-   * Generate a perfect maze.
-   * @param {number} cols
-   * @param {number} rows
-   * @param {number} [seed] optional seed for deterministic output
-   * @returns {{cols:number, rows:number, cells:Array<Array<Object>>}}
-   */
   function generate(cols, rows, seed) {
     const rand = mulberry32(seed != null ? seed : (Math.random() * 1e9) | 0);
 
-    // 2D grid: cells[y][x]
     const cells = [];
     for (let y = 0; y < rows; y++) {
       const row = [];
@@ -29,7 +20,6 @@ const MazeGen = (function () {
       cells.push(row);
     }
 
-    // Iterative recursive backtracker (DFS).
     const stack = [];
     cells[0][0].visited = true;
     stack.push([0, 0]);
@@ -49,7 +39,6 @@ const MazeGen = (function () {
         continue;
       }
       const [k, nx, ny] = neighbors[Math.floor(rand() * neighbors.length)];
-      // knock down wall between (x,y) and (nx,ny)
       cells[y][x][k] = false;
       cells[ny][nx][DIR[k].opp] = false;
       cells[ny][nx].visited = true;
@@ -59,10 +48,6 @@ const MazeGen = (function () {
     return { cols, rows, cells };
   }
 
-  /**
-   * Knock out an additional fraction of interior walls to create loops.
-   * Helps make the maze less mean and gives the player choices.
-   */
   function carveLoops(maze, fraction = 0.10, seed = 1) {
     const rand = mulberry32(seed);
     const candidates = [];
@@ -72,7 +57,6 @@ const MazeGen = (function () {
         if (y + 1 < maze.rows && maze.cells[y][x].s) candidates.push({ x, y, k: "s" });
       }
     }
-    // Fisher-Yates shuffle
     for (let i = candidates.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
       [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
@@ -88,7 +72,6 @@ const MazeGen = (function () {
     }
   }
 
-  /** Pick a random *interior* wall as the Y-key togglable wall. */
   function pickToggleWall(maze, seed = 7) {
     const rand = mulberry32(seed);
     const interior = [];
@@ -103,18 +86,15 @@ const MazeGen = (function () {
       }
     }
     if (interior.length === 0) return null;
-    // Prefer walls roughly in the middle of the maze (more impactful change)
     interior.sort((a, b) => {
       const da = Math.hypot(a.x - maze.cols / 2, a.y - maze.rows / 2);
       const db = Math.hypot(b.x - maze.cols / 2, b.y - maze.rows / 2);
       return da - db;
     });
-    // pick from the inner third
     const top = interior.slice(0, Math.max(1, Math.floor(interior.length / 3)));
     return top[Math.floor(rand() * top.length)];
   }
 
-  // PRNG: mulberry32 — small, deterministic, plenty good for level layouts.
   function mulberry32(seed) {
     let t = seed >>> 0;
     return function () {
