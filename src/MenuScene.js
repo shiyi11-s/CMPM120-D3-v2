@@ -24,7 +24,7 @@ class MenuScene extends Phaser.Scene {
       strokeThickness: 6,
     }).setOrigin(0.5);
 
-    const marble = this.add.image(w / 2, 270, "marble").setScale(2);
+    const marble = this.add.image(w / 2, 265, "marble").setScale(2);
     this.tweens.add({
       targets: marble,
       y: 285,
@@ -38,12 +38,9 @@ class MenuScene extends Phaser.Scene {
       "tilt the maze so the marble drops into the dark portal at the bottom.",
       "",
       "controls:",
-      "  hold + drag mouse  ->  rotate the maze (continuous)",
-      "  release            ->  lock the tilt (discrete)",
-      "  Y                  ->  toggle the orange shortcut wall",
-      "  R                  ->  reset marble to spawn",
-      "",
-      "three levels, with a summary between each.",
+      "  hold + drag mouse to rotate the maze,",
+      "  Y to toggle the orange shortcut wall,",
+      "  R to reset marble to spawn.",
     ];
     this.add.text(w / 2, 390, rules.join("\n"), {
       fontFamily: "ui-monospace, monospace",

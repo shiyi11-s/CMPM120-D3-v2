@@ -311,7 +311,7 @@ class GameScene extends Phaser.Scene {
 
     const m = this.marble;
     const safeR = Math.max(this.mazeWidth, this.mazeHeight) * 0.85;
-    if (Math.hypot(m.x - this.mazeCenterX, m.y - this.mazeCenterY) > safeR) {
+    if (this.timerActive && Math.hypot(m.x - this.mazeCenterX, m.y - this.mazeCenterY) > safeR) {
       this.resetMarble(true);
     }
 
